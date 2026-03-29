@@ -388,16 +388,28 @@ body { font-family:'Noto Sans SC',system-ui,sans-serif; overflow:hidden; height:
   width:0; transition:width 0.4s ease;
 }
 
-/* Animated dot on route */
-.route-dot {
-  width:14px; height:14px; border-radius:50%;
-  background:var(--cyan); border:2px solid #fff;
-  box-shadow:0 0 12px rgba(14,165,233,0.6);
-  animation:routeDotPulse 1.5s infinite;
+/* Animated transport vehicle on route */
+.route-vehicle {
+  font-size:22px; line-height:1; text-align:center;
+  filter:drop-shadow(0 0 8px rgba(14,165,233,0.7));
+  transition:transform 0.15s linear;
+  pointer-events:none;
 }
-@keyframes routeDotPulse {
-  0%,100%{box-shadow:0 0 12px rgba(14,165,233,0.6)}
-  50%{box-shadow:0 0 24px rgba(14,165,233,0.9)}
+.route-vehicle-bg {
+  position:relative; width:40px; height:40px; display:flex; align-items:center; justify-content:center;
+}
+.route-vehicle-bg::before {
+  content:''; position:absolute; inset:-2px; border-radius:50%;
+  background:radial-gradient(circle,rgba(14,165,233,0.35) 0%,transparent 70%);
+  animation:vehiclePulse 1.5s infinite;
+}
+@keyframes vehiclePulse {
+  0%,100%{transform:scale(1);opacity:0.7} 50%{transform:scale(1.5);opacity:0}
+}
+.route-trail-glow {
+  stroke:var(--cyan); stroke-width:4; fill:none;
+  filter:drop-shadow(0 0 6px rgba(14,165,233,0.5));
+}
 }
 </style>
 </head>
@@ -1065,9 +1077,29 @@ function initIntro() {
     maxZoom:18
   }).addTo(introMap);
 
-  // Create route dot marker
+  // Create transport vehicle marker (initially hidden)
+  function makeVehicleIcon(emoji, bearing) {
+    return L.divIcon({
+      className:'',
+      html:'<div class="route-vehicle-bg"><div class="route-vehicle" style="transform:rotate('+bearing+'deg)">'+emoji+'</div></div>',
+      iconSize:[40,40], iconAnchor:[20,20]
+    });
+  }
+  // Bearing calculation helper
+  function getBearing(lat1,lng1,lat2,lng2) {
+    const toRad=d=>d*Math.PI/180, toDeg=r=>r*180/Math.PI;
+    const dLng=toRad(lng2-lng1);
+    const y=Math.sin(dLng)*Math.cos(toRad(lat2));
+    const x=Math.cos(toRad(lat1))*Math.sin(toRad(lat2))-Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(dLng);
+    return (toDeg(Math.atan2(y,x))+360)%360;
+  }
+  // Interpolate between two latlngs
+  function interpolate(p1,p2,t) {
+    return [p1[0]+(p2[0]-p1[0])*t, p1[1]+(p2[1]-p1[1])*t];
+  }
+  const TRANSPORT_EMOJI = {train:'🚄',didi:'🚕',ebike:'🛵'};
   routeDot = L.marker([31.820, 117.308], {
-    icon: L.divIcon({ className:'', html:'<div class="route-dot"></div>', iconSize:[14,14], iconAnchor:[7,7] })
+    icon: makeVehicleIcon('🚄', 0), zIndexOffset:1000
   }).addTo(introMap);
 
   // Start animation sequence
@@ -1094,32 +1126,64 @@ async function startIntroSequence() {
   const cardDesc = document.getElementById('intro-card-desc');
   const cardTransport = document.getElementById('intro-card-transport');
 
+  // Animate vehicle moving along route between stops
+  function animateVehicleAlongRoute(from, to, emoji, duration) {
+    return new Promise(resolve => {
+      if(!introActive) { resolve(); return; }
+      const start = [from.lat, from.lng];
+      const end = [to.lat, to.lng];
+      const bearing = getBearing(start[0],start[1],end[0],end[1]);
+      routeDot.setIcon(makeVehicleIcon(emoji, bearing));
+      routeDot.setLatLng(start);
+      // Trail polyline that grows as vehicle moves
+      const trail = L.polyline([start], {
+        color:'#60a5fa', weight:3, opacity:0.85,
+        dashArray: to.transport==='train'?'':'8 6'
+      }).addTo(introMap);
+      // Bright glow trail
+      const glowTrail = L.polyline([start], {
+        color:'#38bdf8', weight:5, opacity:0.3
+      }).addTo(introMap);
+      const STEPS = 60;
+      let step = 0;
+      const interval = setInterval(() => {
+        if(!introActive) { clearInterval(interval); resolve(); return; }
+        step++;
+        const t = step / STEPS;
+        // Ease-in-out for smooth feel
+        const eased = t < 0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+        const pos = interpolate(start, end, eased);
+        routeDot.setLatLng(pos);
+        trail.addLatLng(pos);
+        glowTrail.addLatLng(pos);
+        if(step >= STEPS) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, duration / STEPS);
+    });
+  }
+
   for(let i = 0; i < INTRO_STOPS.length; i++) {
     if(!introActive) return;
     const stop = INTRO_STOPS[i];
     const progress = ((i + 1) / (INTRO_STOPS.length + 1)) * 100;
     progressBar.style.width = progress + '%';
 
-    // Show transport mode during transition
-    const tIcon = document.createElement('div');
-    tIcon.textContent = stop.transportLabel || '';
-    tIcon.style.cssText = 'position:fixed;z-index:10002;top:12%;left:50%;transform:translateX(-50%);padding:6px 18px;border-radius:20px;background:rgba(15,23,42,0.88);color:#fdba74;font-size:14px;font-weight:600;letter-spacing:1px;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.12);opacity:0;transition:opacity 0.4s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.3);';
-    document.getElementById('intro-overlay').appendChild(tIcon);
-    requestAnimationFrame(()=>tIcon.style.opacity='1');
+    const emoji = TRANSPORT_EMOJI[stop.transport] || '📍';
 
-    // Draw route segment
     if(i > 0) {
       const prev = INTRO_STOPS[i-1];
-      const segCoords = [[prev.lat, prev.lng], [stop.lat, stop.lng]];
-      const line = L.polyline(segCoords, { color:'#60a5fa', weight:3, opacity:0.8, dashArray: stop.transport==='train'?'':'8 6' }).addTo(introMap);
+      // Start flyTo and vehicle animation in parallel
+      introMap.flyTo([stop.lat, stop.lng], stop.zoom || 13, { duration:2.0, easeLinearity:0.3 });
+      await animateVehicleAlongRoute(prev, stop, emoji, 2000);
+    } else {
+      // First stop - just set position and fly
+      routeDot.setIcon(makeVehicleIcon(emoji, 180));
+      routeDot.setLatLng([stop.lat, stop.lng]);
+      introMap.flyTo([stop.lat, stop.lng], stop.zoom || 13, { duration:1.8, easeLinearity:0.4 });
+      await delay(2000);
     }
-
-    // Move dot
-    routeDot.setLatLng([stop.lat, stop.lng]);
-
-    // Fly to location
-    introMap.flyTo([stop.lat, stop.lng], stop.zoom || 13, { duration:1.8, easeLinearity:0.4 });
-    await delay(2000);
     if(!introActive) return;
 
     // Show photo card
@@ -1130,7 +1194,6 @@ async function startIntroSequence() {
     cardTitle.textContent = stop.title;
     cardDesc.textContent = stop.desc;
     cardTransport.textContent = stop.transportLabel || '';
-    tIcon.style.opacity='0'; setTimeout(()=>tIcon.remove(), 400);
     card.classList.remove('hidden-card');
     card.classList.add('visible');
 
