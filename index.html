@@ -260,9 +260,329 @@ body { font-family:'Noto Sans SC',system-ui,sans-serif; overflow:hidden; height:
 #trip-title .dates { font-size:14px; color:rgba(255,255,255,0.35); letter-spacing:2px; }
 #trip-title .enter { margin-top:40px; font-size:13px; color:rgba(255,255,255,0.3); animation:fadeInUp 2s infinite; }
 @keyframes fadeInUp { 0%,100%{opacity:0.3;transform:translateY(0)} 50%{opacity:0.7;transform:translateY(-6px)} }
+
+/* ===== INTRO ANIMATION ===== */
+#intro-overlay {
+  position:fixed; inset:0; z-index:9999;
+  background:#0a0e1a;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  overflow:hidden; transition:opacity 1s ease;
+}
+#intro-overlay.hidden { opacity:0; pointer-events:none; }
+
+/* Skip buttons */
+.intro-skip-bar {
+  position:fixed; top:env(safe-area-inset-top, 12px); right:12px; z-index:10000;
+  display:flex; gap:8px; padding-top:12px;
+}
+.intro-skip-btn {
+  background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2);
+  color:rgba(255,255,255,0.7); font-size:12px; padding:6px 14px;
+  border-radius:20px; cursor:pointer; backdrop-filter:blur(8px);
+  font-family:inherit; transition:all .3s;
+}
+.intro-skip-btn:hover { background:rgba(255,255,255,0.2); color:#fff; }
+.intro-skip-btn.no-show { color:rgba(255,255,255,0.45); font-size:11px; }
+
+/* Scene container */
+.intro-scene {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  opacity:0; transition:opacity 1.2s ease;
+  padding:20px;
+}
+.intro-scene.active { opacity:1; }
+
+/* Scene backgrounds */
+.scene-bg {
+  position:absolute; inset:0; z-index:0;
+  background-size:cover; background-position:center;
+}
+
+/* Scene 1: Opening */
+.scene1-bg {
+  background:linear-gradient(135deg, #0c1445 0%, #1a237e 30%, #0d47a1 60%, #01579b 100%);
+}
+.scene1-stars {
+  position:absolute; inset:0; overflow:hidden;
+}
+.scene1-stars span {
+  position:absolute; width:2px; height:2px; background:#fff; border-radius:50%;
+  animation:twinkle 3s infinite alternate;
+}
+@keyframes twinkle { 0%{opacity:0.2} 100%{opacity:1} }
+
+.scene1-title {
+  z-index:1; text-align:center;
+  animation:scene1Enter 1.5s ease-out forwards;
+}
+@keyframes scene1Enter {
+  0% { opacity:0; transform:scale(0.8) translateY(30px); }
+  100% { opacity:1; transform:scale(1) translateY(0); }
+}
+.scene1-title h2 {
+  font-size:clamp(36px,10vw,64px); font-weight:900; color:transparent;
+  background:linear-gradient(135deg, #60a5fa, #38bdf8, #818cf8, #c084fc);
+  -webkit-background-clip:text; background-clip:text;
+  line-height:1.2; margin-bottom:16px;
+}
+.scene1-title .sub {
+  font-size:clamp(14px,4vw,20px); color:rgba(255,255,255,0.5);
+  font-weight:300; letter-spacing:4px;
+}
+
+/* Scene 2: Train journey */
+.scene2-bg {
+  background:linear-gradient(180deg, #1e3a5f 0%, #2d5a87 40%, #4a9ead 70%, #87ceeb 100%);
+}
+.train-track {
+  position:absolute; bottom:35%; left:0; right:0; height:4px;
+  background:rgba(255,255,255,0.15); z-index:1;
+}
+.train-track::after {
+  content:''; position:absolute; top:-1px; left:0; right:0; height:6px;
+  background:repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(255,255,255,0.1) 20px, rgba(255,255,255,0.1) 22px);
+}
+.train-emoji {
+  position:absolute; bottom:calc(35% + 8px); font-size:40px; z-index:2;
+  animation:trainMove 4s ease-in-out forwards;
+}
+@keyframes trainMove {
+  0% { left:-60px; } 100% { left:110%; }
+}
+.scene2-cities {
+  position:absolute; bottom:calc(35% + 60px); left:0; right:0; z-index:1;
+  display:flex; justify-content:space-between; padding:0 15%;
+}
+.scene2-city {
+  text-align:center; color:rgba(255,255,255,0.8); font-size:14px; font-weight:500;
+  opacity:0; animation:cityFade 0.8s forwards;
+}
+.scene2-city .emoji { font-size:28px; display:block; margin-bottom:6px; }
+.scene2-city:nth-child(1) { animation-delay:0.3s; }
+.scene2-city:nth-child(2) { animation-delay:1.2s; }
+.scene2-city:nth-child(3) { animation-delay:2.0s; }
+@keyframes cityFade { 0%{opacity:0;transform:translateY(10px)} 100%{opacity:1;transform:translateY(0)} }
+
+.scene2-text {
+  position:absolute; top:20%; z-index:2; text-align:center;
+  color:#fff; font-size:clamp(18px,5vw,28px); font-weight:300;
+  opacity:0; animation:textReveal 1s 0.5s forwards;
+}
+@keyframes textReveal { 0%{opacity:0;transform:translateY(20px)} 100%{opacity:0.9;transform:translateY(0)} }
+
+/* Scene 3: Island scenery */
+.scene3-bg {
+  background:linear-gradient(180deg, #1e88e5 0%, #42a5f5 30%, #4dd0e1 55%, #26c6da 70%, #fff9c4 85%, #ffcc80 100%);
+}
+.scene3-waves {
+  position:absolute; bottom:0; left:0; right:0; height:40%; z-index:1;
+  overflow:hidden;
+}
+.wave {
+  position:absolute; bottom:-10px; left:-50%; width:200%; height:100px;
+  border-radius:50% 50% 0 0;
+  animation:waveMove 4s ease-in-out infinite alternate;
+}
+.wave1 { background:rgba(0,150,200,0.3); bottom:30px; animation-duration:3.5s; }
+.wave2 { background:rgba(0,180,220,0.25); bottom:15px; animation-duration:4s; animation-delay:0.5s; }
+.wave3 { background:rgba(0,200,240,0.2); bottom:0; animation-duration:4.5s; animation-delay:1s; }
+@keyframes waveMove { 0%{transform:translateX(-5%)} 100%{transform:translateX(5%)} }
+
+.scene3-sun {
+  position:absolute; top:12%; right:15%; width:clamp(50px,12vw,80px); height:clamp(50px,12vw,80px);
+  background:radial-gradient(circle, #fff9c4, #ffb74d);
+  border-radius:50%; box-shadow:0 0 60px rgba(255,183,77,0.6);
+  z-index:1; animation:sunGlow 3s ease-in-out infinite alternate;
+}
+@keyframes sunGlow { 0%{box-shadow:0 0 60px rgba(255,183,77,0.4)} 100%{box-shadow:0 0 100px rgba(255,183,77,0.8)} }
+
+.scene3-island {
+  position:absolute; bottom:28%; left:50%; transform:translateX(-50%); z-index:2;
+  text-align:center;
+  opacity:0; animation:islandRise 1.2s 0.5s forwards;
+}
+@keyframes islandRise { 0%{opacity:0;transform:translateX(-50%) translateY(40px)} 100%{opacity:1;transform:translateX(-50%) translateY(0)} }
+.scene3-island .emoji { font-size:clamp(50px,14vw,80px); }
+.scene3-text {
+  position:absolute; top:25%; left:50%; transform:translateX(-50%); z-index:3;
+  text-align:center; color:#fff; font-weight:700;
+  font-size:clamp(22px,6vw,36px);
+  text-shadow:0 2px 20px rgba(0,0,0,0.3);
+  opacity:0; animation:textReveal 1s 0.8s forwards;
+}
+.scene3-subtext {
+  position:absolute; top:38%; left:50%; transform:translateX(-50%); z-index:3;
+  text-align:center; color:rgba(255,255,255,0.8); font-weight:300;
+  font-size:clamp(13px,3.5vw,18px); letter-spacing:2px; white-space:nowrap;
+  opacity:0; animation:textReveal 1s 1.2s forwards;
+}
+
+/* Scene 4: Night - Blue tears */
+.scene4-bg {
+  background:linear-gradient(180deg, #0a0e2a 0%, #0d1b3e 40%, #102040 70%, #0a1628 100%);
+}
+.scene4-moon {
+  position:absolute; top:10%; right:20%; width:clamp(30px,8vw,50px); height:clamp(30px,8vw,50px);
+  background:radial-gradient(circle at 65% 40%, #f5f5dc, #daa520);
+  border-radius:50%; box-shadow:0 0 40px rgba(218,165,32,0.3); z-index:1;
+}
+.blue-tear {
+  position:absolute; bottom:0; left:0; right:0; height:35%; z-index:1;
+  background:linear-gradient(180deg, transparent, rgba(0,100,255,0.05), rgba(0,150,255,0.15));
+}
+.tear-particle {
+  position:absolute; width:3px; height:3px; border-radius:50%; z-index:2;
+  animation:tearGlow 2s ease-in-out infinite alternate;
+}
+@keyframes tearGlow {
+  0% { background:rgba(0,150,255,0.3); box-shadow:0 0 4px rgba(0,150,255,0.2); }
+  100% { background:rgba(50,200,255,0.9); box-shadow:0 0 12px rgba(50,200,255,0.7); }
+}
+.scene4-text {
+  position:absolute; top:30%; left:50%; transform:translateX(-50%); z-index:3;
+  text-align:center; white-space:nowrap;
+  opacity:0; animation:textReveal 1s 0.6s forwards;
+}
+.scene4-text h3 {
+  font-size:clamp(20px,5.5vw,32px); font-weight:700;
+  color:transparent; background:linear-gradient(135deg, #60a5fa, #38bdf8, #22d3ee);
+  -webkit-background-clip:text; background-clip:text;
+}
+.scene4-text p {
+  font-size:clamp(12px,3vw,16px); color:rgba(255,255,255,0.4);
+  margin-top:8px; font-weight:300; letter-spacing:3px;
+}
+.scene4-camera {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:3;
+  font-size:clamp(40px,10vw,60px);
+  opacity:0; animation:cameraFloat 3s 1s forwards;
+}
+@keyframes cameraFloat {
+  0% { opacity:0; transform:translate(-50%,-50%) scale(0.5); }
+  30% { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
+  100% { opacity:1; transform:translate(-50%,-50%) scale(1) translateY(-5px); }
+}
+
+/* Scene 5: Final - Let's go */
+.scene5-bg {
+  background:linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0ea5e9 100%);
+}
+.scene5-content {
+  z-index:2; text-align:center;
+  opacity:0; animation:scene5Enter 1.5s 0.3s forwards;
+}
+@keyframes scene5Enter {
+  0% { opacity:0; transform:scale(0.9); }
+  100% { opacity:1; transform:scale(1); }
+}
+.scene5-emoji { font-size:clamp(48px,14vw,80px); margin-bottom:20px; }
+.scene5-content h2 {
+  font-size:clamp(28px,8vw,48px); font-weight:900; color:#fff;
+  margin-bottom:12px;
+}
+.scene5-content p {
+  font-size:clamp(13px,3.5vw,18px); color:rgba(255,255,255,0.5);
+  font-weight:300; margin-bottom:32px;
+}
+.intro-enter-btn {
+  display:inline-block; padding:14px 40px;
+  background:linear-gradient(135deg, var(--cyan), var(--blue));
+  color:#fff; font-size:16px; font-weight:600; border:none; border-radius:30px;
+  cursor:pointer; font-family:inherit;
+  box-shadow:0 4px 20px rgba(14,165,233,0.4);
+  animation:btnPulse 2s 2s infinite;
+  transition:transform .2s;
+}
+.intro-enter-btn:active { transform:scale(0.95); }
+@keyframes btnPulse {
+  0%,100% { box-shadow:0 4px 20px rgba(14,165,233,0.4); }
+  50% { box-shadow:0 4px 36px rgba(14,165,233,0.7); }
+}
+
+/* Progress bar */
+.intro-progress {
+  position:fixed; bottom:0; left:0; right:0; height:3px; z-index:10001;
+  background:rgba(255,255,255,0.08);
+}
+.intro-progress-bar {
+  height:100%; background:linear-gradient(90deg, var(--cyan), var(--blue), var(--violet));
+  width:0; transition:width 0.5s ease;
+}
 </style>
 </head>
 <body>
+
+<!-- INTRO ANIMATION OVERLAY -->
+<div id="intro-overlay">
+  <div class="intro-skip-bar" id="intro-skip-bar">
+    <button class="intro-skip-btn" onclick="skipIntro(false)">跳过</button>
+    <button class="intro-skip-btn no-show" onclick="skipIntro(true)">跳过，不再显示</button>
+  </div>
+
+  <!-- Scene 1: Stars + Title -->
+  <div class="intro-scene" id="scene1">
+    <div class="scene-bg scene1-bg"></div>
+    <div class="scene1-stars" id="stars-container"></div>
+    <div class="scene1-title">
+      <div class="sub">2026 · 清明假期</div>
+      <h2>平潭之旅</h2>
+      <div class="sub" style="margin-top:8px;">Geo & Rae</div>
+    </div>
+  </div>
+
+  <!-- Scene 2: Train journey -->
+  <div class="intro-scene" id="scene2">
+    <div class="scene-bg scene2-bg"></div>
+    <div class="scene2-text">一路向南，奔赴海岛</div>
+    <div class="scene2-cities">
+      <div class="scene2-city"><span class="emoji">🏙️</span>合肥</div>
+      <div class="scene2-city"><span class="emoji">🏛️</span>福州</div>
+      <div class="scene2-city"><span class="emoji">🏝️</span>平潭</div>
+    </div>
+    <div class="train-track"></div>
+    <div class="train-emoji" id="train-emoji">🚄</div>
+  </div>
+
+  <!-- Scene 3: Island + Ocean -->
+  <div class="intro-scene" id="scene3">
+    <div class="scene-bg scene3-bg"></div>
+    <div class="scene3-sun"></div>
+    <div class="scene3-text">碧海蓝天，石厝渔村</div>
+    <div class="scene3-subtext">东海仙境 · 北港村 · 环岛路 · 长江澳</div>
+    <div class="scene3-island"><span class="emoji">🪨</span></div>
+    <div class="scene3-waves">
+      <div class="wave wave1"></div>
+      <div class="wave wave2"></div>
+      <div class="wave wave3"></div>
+    </div>
+  </div>
+
+  <!-- Scene 4: Night + Blue tears -->
+  <div class="intro-scene" id="scene4">
+    <div class="scene-bg scene4-bg"></div>
+    <div class="scene4-moon"></div>
+    <div class="scene4-text">
+      <h3>追逐蓝眼泪</h3>
+      <p>夜幕降临 · 星海闪烁</p>
+    </div>
+    <div class="scene4-camera">📸</div>
+    <div class="blue-tear" id="blue-tear-container"></div>
+  </div>
+
+  <!-- Scene 5: Let's go -->
+  <div class="intro-scene" id="scene5">
+    <div class="scene-bg scene5-bg"></div>
+    <div class="scene5-content">
+      <div class="scene5-emoji">🌊</div>
+      <h2>出发吧</h2>
+      <p>四天三晚 · 美食美景 · 与你同行</p>
+      <button class="intro-enter-btn" onclick="skipIntro(false)">开启旅程 →</button>
+    </div>
+  </div>
+
+  <div class="intro-progress"><div class="intro-progress-bar" id="intro-progress-bar"></div></div>
+</div>
 
 <!-- TITLE SCREEN -->
 <div id="trip-title" onclick="enterTrip()">
@@ -838,7 +1158,91 @@ function enterTrip(){
   },400);
 }
 
-// Init: show title screen
+// ============================
+// INTRO ANIMATION
+// ============================
+const INTRO_SKIP_KEY = 'pingtan_intro_skip';
+const scenes = ['scene1','scene2','scene3','scene4','scene5'];
+const sceneDuration = [3500, 4500, 4500, 4500, 99999]; // ms per scene, last = manual
+let currentScene = -1;
+let introTimer = null;
+let introActive = true;
+
+function initIntro() {
+  // Check "don't show again"
+  try {
+    if(localStorage.getItem(INTRO_SKIP_KEY) === '1') {
+      document.getElementById('intro-overlay').style.display = 'none';
+      introActive = false;
+      return;
+    }
+  } catch(e) {}
+
+  // Generate stars for scene 1
+  const starsContainer = document.getElementById('stars-container');
+  for(let i=0; i<60; i++) {
+    const s = document.createElement('span');
+    s.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;animation-delay:${Math.random()*3}s;animation-duration:${2+Math.random()*3}s;width:${1+Math.random()*2}px;height:${1+Math.random()*2}px;`;
+    starsContainer.appendChild(s);
+  }
+
+  // Generate blue tear particles for scene 4
+  const tearContainer = document.getElementById('blue-tear-container');
+  for(let i=0; i<40; i++) {
+    const t = document.createElement('div');
+    t.className = 'tear-particle';
+    t.style.cssText = `left:${Math.random()*100}%;bottom:${Math.random()*100}%;animation-delay:${Math.random()*2}s;animation-duration:${1.5+Math.random()*2}s;`;
+    tearContainer.appendChild(t);
+  }
+
+  // Start first scene
+  nextScene();
+}
+
+function nextScene() {
+  currentScene++;
+  if(currentScene >= scenes.length) return;
+
+  // Deactivate previous
+  scenes.forEach(s => document.getElementById(s).classList.remove('active'));
+
+  // Activate current
+  document.getElementById(scenes[currentScene]).classList.add('active');
+
+  // Update progress bar
+  const progress = ((currentScene + 1) / scenes.length) * 100;
+  document.getElementById('intro-progress-bar').style.width = progress + '%';
+
+  // Reset train animation on scene2
+  if(currentScene === 1) {
+    const train = document.getElementById('train-emoji');
+    train.style.animation = 'none';
+    void train.offsetHeight;
+    train.style.animation = 'trainMove 4s ease-in-out forwards';
+  }
+
+  // Auto-advance (except last scene)
+  if(sceneDuration[currentScene] < 99999) {
+    introTimer = setTimeout(nextScene, sceneDuration[currentScene]);
+  }
+}
+
+function skipIntro(neverShow) {
+  if(!introActive) return;
+  introActive = false;
+  clearTimeout(introTimer);
+
+  if(neverShow) {
+    try { localStorage.setItem(INTRO_SKIP_KEY, '1'); } catch(e) {}
+  }
+
+  const overlay = document.getElementById('intro-overlay');
+  overlay.classList.add('hidden');
+  setTimeout(() => { overlay.style.display = 'none'; }, 1000);
+}
+
+// Init: check intro, show title screen behind
+initIntro();
 switchDay(0);
 // Also pre-render timeline for overview
 renderTimeline(0);
