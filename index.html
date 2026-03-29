@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<title>平潭之旅 · Geo & Rae · 清明 2026</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --blue: #0ea5e9; --blue-dark: #0369a1; --orange: #f97316; --orange-light: #fdba74;
+  --cyan: #22d3ee; --emerald: #10b981; --violet: #8b5cf6; --rose: #f43f5e;
+  --sand: #fef3c7; --glass: rgba(255,255,255,0.82); --glass-dark: rgba(15,23,42,0.75);
+  --day1: #6366f1; --day2: #f59e0b; --day3: #10b981; --day4: #8b5cf6;
+  --radius: 16px; --shadow: 0 8px 32px rgba(0,0,0,0.12);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Noto Sans SC',system-ui,sans-serif; overflow:hidden; height:100vh; height:100dvh; width:100vw; background:#0f172a; -webkit-overflow-scrolling:touch; }
+
+/* ===== MAP ===== */
+#map { position:absolute; inset:0; z-index:1; }
+.leaflet-control-attribution { font-size:10px!important; opacity:0.6; }
+
+/* ===== STATUS BAR ===== */
+#status-bar {
+  position:fixed; top:0; left:0; right:0; z-index:1000; height:56px;
+  background: linear-gradient(135deg, rgba(15,23,42,0.88), rgba(30,41,59,0.92));
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  display:flex; align-items:center; padding:0 20px; gap:16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+#status-bar .logo { font-size:18px; font-weight:700; color:#fff; white-space:nowrap; letter-spacing:1px; }
+#status-bar .logo span { background:linear-gradient(135deg,var(--cyan),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+#status-now { flex:1; display:flex; align-items:center; gap:12px; min-width:0; }
+#status-now .pulse { width:10px; height:10px; border-radius:50%; background:var(--emerald); animation:pulse 2s infinite; flex-shrink:0; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.6)} 50%{box-shadow:0 0 0 8px rgba(16,185,129,0)} }
+#status-now .current { color:#e2e8f0; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#status-next { display:flex; align-items:center; gap:8px; color:var(--orange-light); font-size:13px; white-space:nowrap; }
+#status-next svg { flex-shrink:0; }
+.status-countdown { background:rgba(255,255,255,0.1); padding:3px 10px; border-radius:20px; font-size:12px; color:var(--cyan); font-weight:500; }
+
+/* ===== DAY TABS ===== */
+#day-tabs {
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:1000;
+  display:flex; gap:6px; padding:6px;
+  background:var(--glass-dark); backdrop-filter:blur(16px); border-radius:28px;
+  box-shadow:var(--shadow); border:1px solid rgba(255,255,255,0.1);
+}
+.day-tab {
+  padding:8px 20px; border-radius:22px; border:none; cursor:pointer;
+  font-size:13px; font-weight:600; font-family:inherit; transition:all .3s;
+  color:rgba(255,255,255,0.6); background:transparent; white-space:nowrap;
+}
+.day-tab:hover { color:#fff; background:rgba(255,255,255,0.1); }
+.day-tab.active { color:#fff; }
+.day-tab[data-day="1"].active { background:var(--day1); }
+.day-tab[data-day="2"].active { background:var(--day2); }
+.day-tab[data-day="3"].active { background:var(--day3); }
+.day-tab[data-day="4"].active { background:var(--day4); }
+.day-tab[data-day="0"].active { background:var(--blue-dark); }
+
+/* ===== TIMELINE SIDEBAR ===== */
+#timeline {
+  position:fixed; top:56px; left:0; bottom:0; width:320px; z-index:900;
+  background:linear-gradient(180deg, rgba(15,23,42,0.92), rgba(15,23,42,0.88));
+  backdrop-filter:blur(16px); overflow-y:auto; padding:16px 0;
+  border-right:1px solid rgba(255,255,255,0.06);
+  transition:transform .4s cubic-bezier(.4,0,.2,1);
+  scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.15) transparent;
+}
+#timeline::-webkit-scrollbar { width:4px; }
+#timeline::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:2px; }
+#timeline.collapsed { transform:translateX(-320px); }
+#timeline-toggle {
+  position:fixed; top:68px; left:320px; z-index:901; width:32px; height:48px;
+  background:var(--glass-dark); backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,0.1); border-left:none;
+  border-radius:0 12px 12px 0; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:left .4s cubic-bezier(.4,0,.2,1); color:rgba(255,255,255,0.6);
+}
+#timeline-toggle:hover { color:#fff; }
+#timeline-toggle.collapsed { left:0; }
+#timeline-toggle svg { transition:transform .3s; }
+#timeline-toggle.collapsed svg { transform:rotate(180deg); }
+
+.tl-day-header {
+  padding:8px 20px; margin:8px 0 4px; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:2px; color:rgba(255,255,255,0.4);
+}
+.tl-item {
+  display:flex; gap:12px; padding:10px 16px 10px 20px; cursor:pointer;
+  border-left:3px solid transparent; transition:all .25s; position:relative;
+}
+.tl-item:hover { background:rgba(255,255,255,0.05); }
+.tl-item.active { background:rgba(255,255,255,0.08); }
+.tl-item[data-day="1"].active { border-left-color:var(--day1); }
+.tl-item[data-day="2"].active { border-left-color:var(--day2); }
+.tl-item[data-day="3"].active { border-left-color:var(--day3); }
+.tl-item[data-day="4"].active { border-left-color:var(--day4); }
+.tl-item.past { opacity:0.45; }
+.tl-item.now .tl-time { color:var(--cyan); }
+.tl-time { font-size:12px; color:rgba(255,255,255,0.5); width:44px; flex-shrink:0; padding-top:2px; font-weight:500; font-variant-numeric:tabular-nums; }
+.tl-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.tl-info { flex:1; min-width:0; }
+.tl-title { font-size:13px; font-weight:600; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tl-subtitle { font-size:11px; color:rgba(255,255,255,0.4); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tl-item.optional { border-left-style:dashed; opacity:0.65; }
+.tl-item.optional .tl-title::after { content:'选'; font-size:9px; background:rgba(255,255,255,0.12); padding:1px 5px; border-radius:4px; margin-left:6px; vertical-align:middle; }
+
+/* ===== DETAIL PANEL ===== */
+#detail-panel {
+  position:fixed; top:56px; right:-420px; bottom:0; width:400px; z-index:950;
+  background:linear-gradient(180deg, rgba(15,23,42,0.95), rgba(15,23,42,0.92));
+  backdrop-filter:blur(20px); overflow-y:auto; transition:right .4s cubic-bezier(.4,0,.2,1);
+  border-left:1px solid rgba(255,255,255,0.08); box-shadow:-8px 0 32px rgba(0,0,0,0.2);
+  scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.15) transparent;
+}
+#detail-panel::-webkit-scrollbar { width:4px; }
+#detail-panel::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:2px; }
+#detail-panel.open { right:0; }
+#detail-close {
+  position:absolute; top:12px; right:12px; z-index:10; width:32px; height:32px;
+  background:rgba(255,255,255,0.08); border:none; border-radius:50%; cursor:pointer;
+  color:rgba(255,255,255,0.6); font-size:18px; display:flex; align-items:center; justify-content:center;
+}
+#detail-close:hover { background:rgba(255,255,255,0.15); color:#fff; }
+
+.detail-header { padding:24px 20px 16px; position:relative; }
+.detail-header .badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; margin-bottom:8px; }
+.detail-header h2 { font-size:20px; font-weight:700; color:#fff; line-height:1.3; margin-bottom:4px; }
+.detail-header .sub { font-size:13px; color:rgba(255,255,255,0.5); }
+.detail-time-badge { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--cyan); margin-top:8px; }
+.detail-body { padding:0 20px 24px; }
+.detail-desc { font-size:14px; color:rgba(255,255,255,0.75); line-height:1.7; margin-bottom:16px; }
+
+.detail-section { margin-bottom:16px; }
+.detail-section-title {
+  font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px;
+  margin-bottom:8px; display:flex; align-items:center; gap:6px;
+}
+.detail-section-title.tips { color:var(--orange); }
+.detail-section-title.photo { color:var(--rose); }
+.detail-section-title.food { color:var(--emerald); }
+.detail-section-title.tears { color:var(--cyan); }
+
+.detail-tip {
+  font-size:13px; color:rgba(255,255,255,0.65); line-height:1.6;
+  padding:6px 0 6px 16px; position:relative;
+}
+.detail-tip::before { content:''; position:absolute; left:0; top:12px; width:6px; height:6px; border-radius:50%; }
+.tips .detail-tip::before { background:var(--orange); }
+.photo .detail-tip::before { background:var(--rose); }
+.food .detail-tip::before { background:var(--emerald); }
+.tears .detail-tip::before { background:var(--cyan); }
+.detail-tip.highlight { color:#fff; font-weight:500; }
+
+.tears-spots { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+.tear-spot {
+  padding:10px 12px; border-radius:10px; background:rgba(34,211,238,0.08);
+  border:1px solid rgba(34,211,238,0.15); cursor:pointer; transition:all .2s;
+}
+.tear-spot:hover { background:rgba(34,211,238,0.15); transform:translateX(4px); }
+.tear-spot .name { font-size:13px; font-weight:600; color:var(--cyan); }
+.tear-spot .desc { font-size:12px; color:rgba(255,255,255,0.5); margin-top:2px; }
+
+/* ===== WEATHER TOGGLE ===== */
+.weather-toggle {
+  display:flex; gap:4px; margin:12px 0; padding:4px; background:rgba(255,255,255,0.06); border-radius:12px;
+}
+.weather-btn {
+  flex:1; padding:8px; border:none; border-radius:10px; cursor:pointer;
+  font-size:12px; font-weight:600; font-family:inherit; transition:all .2s;
+  color:rgba(255,255,255,0.5); background:transparent;
+}
+.weather-btn.active { color:#fff; background:var(--day2); }
+
+/* ===== CUSTOM MAP MARKERS ===== */
+.custom-marker {
+  width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:16px; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.3);
+  border:2px solid rgba(255,255,255,0.9); transition:transform .2s;
+  cursor:pointer; position:relative;
+}
+.custom-marker:hover { transform:scale(1.2); }
+.custom-marker.active-marker { transform:scale(1.4); border-color:#fff; box-shadow:0 0 0 4px rgba(255,255,255,0.4), 0 0 24px rgba(14,165,233,0.7); z-index:9000!important; animation:markerPulse 1.5s infinite; }
+@keyframes markerPulse { 0%,100%{box-shadow:0 0 0 4px rgba(255,255,255,0.4), 0 0 24px rgba(14,165,233,0.6)} 50%{box-shadow:0 0 0 8px rgba(255,255,255,0.2), 0 0 36px rgba(14,165,233,0.9)} }
+.custom-marker.type-transit { background:linear-gradient(135deg,#6366f1,#818cf8); }
+.custom-marker.type-hotel { background:linear-gradient(135deg,#f59e0b,#fbbf24); }
+.custom-marker.type-scenic { background:linear-gradient(135deg,#10b981,#34d399); }
+.custom-marker.type-food { background:linear-gradient(135deg,#f97316,#fb923c); }
+.custom-marker.type-blue-tears { background:linear-gradient(135deg,#06b6d4,#22d3ee); animation:glow 2s infinite; }
+.custom-marker.type-camera { background:linear-gradient(135deg,#ec4899,#f472b6); }
+.custom-marker.type-optional { opacity:0.7; border-style:dashed; }
+@keyframes glow { 0%,100%{box-shadow:0 0 8px rgba(34,211,238,0.4)} 50%{box-shadow:0 0 20px rgba(34,211,238,0.8)} }
+
+.marker-time {
+  position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:4px;
+  white-space:nowrap; font-size:10px; font-weight:700; color:#fff;
+  background:rgba(14,165,233,0.85); padding:1px 6px; border-radius:8px;
+  text-shadow:0 1px 2px rgba(0,0,0,0.5); pointer-events:none;
+  letter-spacing:0.5px; line-height:1.4;
+  box-shadow:0 2px 6px rgba(0,0,0,0.3);
+}
+.marker-label {
+  position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px;
+  white-space:nowrap; font-size:11px; font-weight:600; color:#fff;
+  text-shadow:0 1px 4px rgba(0,0,0,0.8); pointer-events:none;
+}
+
+/* ===== ROUTE LINES ===== */
+.route-day1 { stroke:var(--day1); }
+.route-day2 { stroke:var(--day2); }
+.route-day3 { stroke:var(--day3); }
+.route-day4 { stroke:var(--day4); }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width:768px) {
+  #status-bar { height:48px; padding:0 12px; gap:8px; }
+  #status-bar .logo { font-size:15px; }
+  #status-now .current { font-size:12px; }
+  #status-next { font-size:11px; }
+  .status-countdown { font-size:11px; padding:2px 8px; }
+  #timeline { width:100%; top:48px; height:45vh; bottom:auto; border-right:none; border-bottom:1px solid rgba(255,255,255,0.08); border-radius:0 0 16px 16px; }
+  #timeline.collapsed { transform:translateY(-100%); }
+  #timeline-toggle { top:48px; left:50%; transform:translateX(-50%); width:48px; height:28px; border-radius:0 0 12px 12px; border:1px solid rgba(255,255,255,0.1); border-top:none; }
+  #timeline-toggle.collapsed { top:48px; left:50%; }
+  #timeline-toggle svg { transform:rotate(-90deg); }
+  #timeline-toggle.collapsed svg { transform:rotate(90deg); }
+  #detail-panel { width:100%; right:-100%; top:48px; }
+  #day-tabs { bottom:12px; gap:3px; padding:4px; }
+  .day-tab { padding:7px 11px; font-size:11px; border-radius:18px; }
+  .custom-marker { width:30px; height:30px; font-size:13px; }
+  .marker-label { font-size:9px; }
+  .marker-time { font-size:8px; padding:1px 4px; }
+  #trip-title { top:48px; }
+  #trip-title h1 { font-size:clamp(28px,8vw,42px); }
+  .detail-header h2 { font-size:17px; }
+  .detail-desc { font-size:13px; }
+  .detail-tip { font-size:12px; }
+}
+
+/* ===== TRIP TITLE OVERLAY ===== */
+#trip-title {
+  position:fixed; top:56px; left:0; right:0; bottom:0; z-index:2000;
+  background:linear-gradient(135deg, rgba(15,23,42,0.97), rgba(30,58,95,0.95));
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transition:opacity .8s, visibility .8s; cursor:pointer;
+}
+#trip-title.hidden { opacity:0; visibility:hidden; pointer-events:none; }
+#trip-title h1 {
+  font-size:clamp(32px,6vw,56px); font-weight:900; color:#fff;
+  background:linear-gradient(135deg,var(--cyan),var(--blue),var(--violet));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  margin-bottom:12px; text-align:center;
+}
+#trip-title .names { font-size:clamp(16px,3vw,22px); color:rgba(255,255,255,0.6); font-weight:300; margin-bottom:8px; }
+#trip-title .dates { font-size:14px; color:rgba(255,255,255,0.35); letter-spacing:2px; }
+#trip-title .enter { margin-top:40px; font-size:13px; color:rgba(255,255,255,0.3); animation:fadeInUp 2s infinite; }
+@keyframes fadeInUp { 0%,100%{opacity:0.3;transform:translateY(0)} 50%{opacity:0.7;transform:translateY(-6px)} }
+</style>
+</head>
+<body>
+
+<!-- TITLE SCREEN -->
+<div id="trip-title" onclick="enterTrip()">
+  <div class="names">Geo & Rae</div>
+  <h1>平潭之旅</h1>
+  <div class="dates">2026.04.03 — 04.06 · 清明假期</div>
+  <div class="enter">点击进入旅行计划 →</div>
+</div>
+
+<!-- STATUS BAR -->
+<div id="status-bar">
+  <div class="logo">🌊 <span>平潭之旅</span></div>
+  <div id="status-now">
+    <div class="pulse"></div>
+    <div class="current" id="status-current-text">加载中...</div>
+  </div>
+  <div id="status-next">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    <span id="status-next-text"></span>
+  </div>
+  <div class="status-countdown" id="status-countdown"></div>
+</div>
+
+<!-- MAP -->
+<div id="map"></div>
+
+<!-- TIMELINE TOGGLE -->
+<div id="timeline-toggle" onclick="toggleTimeline()">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+</div>
+
+<!-- TIMELINE SIDEBAR -->
+<div id="timeline"></div>
+
+<!-- DETAIL PANEL -->
+<div id="detail-panel">
+  <button id="detail-close" onclick="closeDetail()">&times;</button>
+  <div id="detail-content"></div>
+</div>
+
+<!-- DAY TABS -->
+<div id="day-tabs">
+  <button class="day-tab" data-day="0" onclick="switchDay(0)">全览</button>
+  <button class="day-tab" data-day="1" onclick="switchDay(1)">Day1 福州</button>
+  <button class="day-tab" data-day="2" onclick="switchDay(2)">Day2 抵潭</button>
+  <button class="day-tab" data-day="3" onclick="switchDay(3)">Day3 环岛</button>
+  <button class="day-tab" data-day="4" onclick="switchDay(4)">Day4 归程</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ============================
+// DATA
+// ============================
+const ICONS = {
+  train:'🚄', hotel:'🏨', food:'🍽', camera:'📸', sunset:'🌅',
+  mountain:'⛰', beach:'🏖', stars:'✨', road:'🛣', walk:'🚶'
+};
+const DAY_COLORS = ['#0ea5e9','#6366f1','#f59e0b','#10b981','#8b5cf6'];
+const DAY_LABELS = ['全览','Day 1 · 4/3 周五','Day 2 · 4/4 周六','Day 3 · 4/5 周日','Day 4 · 4/6 周一'];
+
+const schedule = [
+  // ===== DAY 1 =====
+  { id:'d1-1', day:1, date:'2026-04-03', startTime:'13:12', endTime:'16:16',
+    title:'合肥南 → 黄山北', subtitle:'G7705 · 第一程高铁',
+    type:'transit', icon:'train', lat:31.820, lng:117.308,
+    desc:'穿越皖南大地，从江淮平原到徽州山区。窗外风景渐入佳境。',
+    tips:['车程约3小时，可以休息补觉','提前准备零食和水，车上也可以买','建议提前下载好离线地图和平潭攻略'],
+  },
+  { id:'d1-2', day:1, date:'2026-04-03', startTime:'16:16', endTime:'16:22',
+    title:'黄山北站 · 同站换乘', subtitle:'仅停留6分钟！',
+    type:'transit', icon:'train', lat:29.731, lng:118.316,
+    desc:'同站台换乘或同站不同站台换乘。6分钟时间紧张，需要提前做好准备。',
+    tips:['⚠️ 仅6分钟换乘，到站前就站到车门口','查看车票上的车厢号，提前确认下一趟车的候车信息','不要出站！在站内直接换乘','行李精简，快速移动'],
+  },
+  { id:'d1-3', day:1, date:'2026-04-03', startTime:'16:22', endTime:'18:44',
+    title:'黄山北 → 福州', subtitle:'G1629 · 第二程高铁',
+    type:'transit', icon:'train', lat:29.731, lng:118.316, endLat:26.049, endLng:119.308,
+    desc:'翻越武夷山脉进入福建，沿途闽北山水秀美。约2.5小时车程。',
+    tips:['沿途经过南平、延平等地，山区隧道较多','可以趁这段时间查看平潭天气预报，为明天行程做决策'],
+  },
+  { id:'d1-4', day:1, date:'2026-04-03', startTime:'18:44', endTime:'19:15',
+    title:'到达福州站 → 入住酒店', subtitle:'全季福州上下杭五一南路酒店',
+    type:'hotel', icon:'hotel', lat:26.055, lng:119.303,
+    desc:'高级大床房，含早餐1份（金会员入住）。酒店位于上下杭历史街区核心地段，五一南路215号，出门就是老街。',
+    tips:['从福州站打车约15分钟，费用约15-20元','也可以坐地铁1号线到达道站，步行约10分钟','办理入住后轻装出门，贵重物品存酒店'],
+  },
+  { id:'d1-5', day:1, date:'2026-04-03', startTime:'19:30', endTime:'21:30',
+    title:'上下杭历史街区夜游', subtitle:'晚餐 + 散步 · 感受福州烟火气',
+    type:'food', icon:'food', lat:26.056, lng:119.301,
+    desc:'福州最有烟火气的老街区。三捷河穿城而过，古建筑群与现代小店交织，夜晚灯火映水面，氛围感拉满。',
+    tips:['必吃：同利肉燕（百年老店）、永和鱼丸、没牙花生汤','上下杭和三坊七巷是两个地方，但步行可达（约15分钟）','街区不大，慢慢逛1-2小时足够','如果精力好可以散步到三坊七巷南后街看灯（但建议留到明天）','别吃太撑——明天在平潭还有海鲜大餐等着你们！'],
+    photoTips:['老街灯光下的石板路很有氛围感','三捷河桥上拍河面倒影，夜景迷人','红灯笼+古建筑的经典福州夜景构图'],
+  },
+
+  // ===== DAY 2 =====
+  { id:'d2-1', day:2, date:'2026-04-04', startTime:'07:30', endTime:'08:30',
+    title:'酒店早餐 + 决策时刻', subtitle:'查天气，定行程',
+    type:'hotel', icon:'hotel', lat:26.055, lng:119.303,
+    desc:'酒店含早餐1份。今天是弹性日——根据平潭天气决定上午安排。',
+    tips:['📱 起床第一件事：打开天气App查平潭今日天气','☀️ 平潭天气好 → 早点出发，坐10:07的D6279去平潭','🌧 平潭天气不好 → 上午逛三坊七巷，下午14:00再走','酒店退房时间14:00，不用着急'],
+  },
+  { id:'d2-2', day:2, date:'2026-04-04', startTime:'08:30', endTime:'10:00',
+    title:'三坊七巷', subtitle:'天气弹性 · 福州千年文脉',
+    type:'scenic', icon:'camera', lat:26.084, lng:119.294, plan:'flexible',
+    desc:'中国十大历史文化名街之一，白墙黛瓦、坊巷纵横，浓缩了福州城市千年的文化记忆。林则徐、严复、冰心等名人故居星罗棋布。',
+    tips:['南后街是主轴线，两侧坊巷各有特色','平潭天气好 → 快速打卡1小时核心景点，赶10:07动车','平潭天气不好 → 细逛2-3小时，午饭后坐14:00动车','水榭戏台、小黄楼、林觉民故居是必看','街区免费，个别故居收费（联票约30元）'],
+    photoTips:['★ Rae拍照重点！','光禄坊的老榕树+白墙 = 绝佳构图','水榭戏台是经典取景点，木结构+水面倒影','巷子里的光影层次感强，适合拍文艺人像','穿浅色/中式风格衣服和古建筑很搭'],
+  },
+  { id:'d2-3', day:2, date:'2026-04-04', startTime:'10:07', endTime:'10:40',
+    title:'福州 → 平潭', subtitle:'D6279 · 仅需33分钟',
+    type:'transit', icon:'train', lat:26.049, lng:119.308, endLat:25.507, endLng:119.728,
+    desc:'动车跨越平潭海峡大桥——中国首座公铁两用跨海大桥，全长16.3公里。窗外就是壮阔的台湾海峡。',
+    tips:['🚄 备选车次：D6277(9:20福州南发) / D6279(10:07福州发) / D6281(14:00福州发)','坐在列车右侧（靠海一侧）可以看到海峡大桥全景','跨海段约3分钟，拿好手机准备拍！','平潭站不大，出站很快'],
+  },
+  { id:'d2-4', day:2, date:'2026-04-04', startTime:'11:00', endTime:'13:00',
+    title:'入住那片海民宿', subtitle:'3号别墅 · 180°海景+绝美日落',
+    type:'hotel', icon:'hotel', lat:25.576, lng:119.689,
+    desc:'平潭·那片海 Sea·Dreamcorner 海景度假民宿，长江澳海滩店。2024年新开业，4.8分高评。推门就是金色沙滩和风车林。3号别墅海景大床房，180°无遮挡海景。',
+    tips:['从平潭站打车约20分钟，费用约30元','到了先休息，泡杯茶在阳台看海','民宿提供免费停车、含早餐','可以在前台咨询租电动车/包车信息','问民宿老板今晚蓝眼泪的情况——本地人消息最灵通'],
+    photoTips:['房间阳台拍海景+风车，自带滤镜','民宿公区和3号别墅本身就很出片','下午3-4点阳台光线最好，拍下午茶氛围照'],
+  },
+  { id:'d2-5', day:2, date:'2026-04-04', startTime:'14:00', endTime:'16:30',
+    title:'长江澳海滩漫步', subtitle:'放松 + 拍照 · 民宿门口',
+    type:'scenic', icon:'camera', lat:25.578, lng:119.686,
+    desc:'平潭最美的沙滩之一，绵延数公里的金色沙滩上，数十座白色风力发电机静静矗立，海风轻拂，岁月静好。',
+    tips:['就在民宿门口，步行即达','下午阳光柔和，是沙滩散步的最佳时段','可以脱鞋踩水，4月海水偏凉，不建议游泳','附近有共享电动车可租（约5元/4小时）','带一瓶水，沙滩上没什么商店'],
+    photoTips:['风车+沙滩+人的构图是平潭经典','逆光剪影效果最佳——面朝夕阳方向拍','带条纱巾或飘逸裙子，海风会让画面更灵动','赤脚在沙滩上走，留下脚印也很好看','可以拍两人在风车下牵手的背影'],
+  },
+  { id:'d2-6', day:2, date:'2026-04-04', startTime:'17:00', endTime:'18:30',
+    title:'长江澳风车田日落 🌅', subtitle:'平潭第一日落',
+    type:'scenic', icon:'sunset', lat:25.575, lng:119.685,
+    desc:'数十座白色风力发电机矗立在金色沙滩上，日落时分天空被染成橙红渐变，风车成为壮美的剪影。这是平潭最标志性的画面，也是无数旅人心中的"平潭封面照"。',
+    tips:['⏰ 日落时间约18:15（4月初），提前30分钟到','往北走人少一些，往南走角度经典','风大记得带件薄外套','日落后别急着走，晚霞的后半段（magic hour）往往更美'],
+    photoTips:['★★★ 平潭最出片的地方，没有之一！','用风车做前景、夕阳做背景的经典构图','人物剪影：面朝夕阳，手臂伸展，Rae一定喜欢','也可以拍暖光人像：让夕阳在人物侧面打光','手机开HDR，画面层次感更好','如果有三脚架，可以拍风车旋转的长曝光','金色沙滩上的倒影也很美——退潮时效果最好'],
+  },
+  { id:'d2-7', day:2, date:'2026-04-04', startTime:'19:00', endTime:'20:30',
+    title:'平潭特色晚餐', subtitle:'海鲜+本地四大名菜',
+    type:'food', icon:'food', lat:25.490, lng:119.785,
+    desc:'平潭有独特的海岛美食文化，"平潭四大名菜"闻名遐迩：时来运转、八珍炒糕、天长地久、海蛎煎。加上新鲜捕捞的海鲜，绝对让味蕾满足。',
+    tips:['🥇 时来运转（必点！）——芋泥皮包肉馅，形似元宝，象征好运连连','🥈 八珍炒糕——多种海鲜与米糕同炒，鲜香弹牙','🥉 天长地久——油炸芋头年糕，外酥里糯','🏅 海蛎煎——要趁热吃，凉了就不香了','💡 白灼小管（鱿鱼）鲜甜无比，强烈推荐','找本地人气排档，避开景区门口的高价店','可以让民宿老板推荐附近靠谱的餐厅'],
+  },
+  { id:'d2-8', day:2, date:'2026-04-04', startTime:'21:00', endTime:'23:30',
+    title:'✨ 追蓝眼泪之夜', subtitle:'海洋荧光奇观 · 4月爆发季',
+    type:'blue-tears', icon:'stars', lat:25.436, lng:119.779,
+    desc:'蓝眼泪是海洋中的夜光藻（或海萤）受海浪刺激后发出的梦幻蓝色荧光，仿佛大海在流泪。4月是蓝眼泪爆发季节，出现概率超70%。这是平潭最浪漫、最奇幻的自然奇观。',
+    tips:['📱 出发前必查「畅游平潭」小程序，看实时概率','概率>75%就出发，直奔概率最高的地点','最佳观赏时间：21:00-凌晨2:00','4月是夜光藻型蓝眼泪，每次闪烁约30秒，需要耐心','穿长袖长裤防蚊虫，沙滩夜里风大带外套','带手电筒（用红光模式，白光会影响观赏）','建议跟本地追泪团（约100元/人），司机熟悉路况还教拍摄','农历初一十五前后大潮期概率更大，4/4是三月初七，不是最佳但4月整体概率高'],
+    photoTips:['📷 需要三脚架 + 长曝光（15-30秒）','相机设置：ISO 1600-3200，光圈尽量大（f/2.8以下最佳）','手机夜景模式也能拍到，但效果有限','人站在荧光海边拍剪影 = 绝世大片','可以用手在海水中划动，触发更多荧光','拍完给Rae看，她一定会尖叫！'],
+    subLocations:[
+      {name:'坛南湾 ⭐ 首选',lat:25.436,lng:119.779,desc:'爆发频率最高的地点，沙滩型，浪花拍上来时整片荧光最壮观'},
+      {name:'长江澳沙滩',lat:25.578,lng:119.686,desc:'就在民宿门口！不用特意跑远，回来方便，可以碰运气'},
+      {name:'东美村',lat:25.465,lng:119.754,desc:'小众高概率点，知道的人少，安静纯粹'},
+      {name:'龙凤头沙滩',lat:25.479,lng:119.787,desc:'新手友好的浅滩型，容易看到，但清明假期人较多'},
+    ],
+  },
+
+  // ===== DAY 3 =====
+  { id:'d3-1', day:3, date:'2026-04-05', startTime:'08:00', endTime:'08:30',
+    title:'民宿早餐 + 出发准备', subtitle:'北线一日游',
+    type:'hotel', icon:'hotel', lat:25.576, lng:119.689,
+    desc:'民宿含免费早餐。今天以北线为主，轻松游玩。清明假期可能较堵，北线距离近、景点集中，是最优选择。',
+    tips:['提前在民宿前台或网上租好电动车/预约包车','涂好防晒霜，海岛紫外线强','带够水和零食，北线有些路段商店不多','穿舒适运动鞋，仙人井需要走路'],
+  },
+  { id:'d3-2', day:3, date:'2026-04-05', startTime:'09:00', endTime:'10:30',
+    title:'东海仙境 / 仙人井', subtitle:'海蚀地貌奇观 · 大自然的鬼斧神工',
+    type:'scenic', icon:'mountain', lat:25.474, lng:119.842,
+    desc:'天然海蚀地貌群，由仙人谷、仙人井、仙人峰三部分组成。仙人谷两侧峭壁夹道，谷底鹅卵石与碧蓝海水交织；仙人井深超40米，井底海浪翻涌，轰鸣如雷。',
+    tips:['门票免费，全天开放','建议停留1-1.5小时','游览顺序：仙人谷 → 仙人井 → 仙人峰','穿防滑运动鞋！部分路段石头湿滑','崖边拍照注意安全，不要翻越护栏','清晨去光线好、人少，今天第一站很合适'],
+    photoTips:['★★ 仙人谷是出片重点——两侧峭壁形成天然画框','站在谷口逆光拍人物剪影，绝了','从高处俯拍谷底鹅卵石+海水，色彩对比震撼','仙人井可以拍俯视的"深渊"视角','穿红色或白色衣服和灰褐色岩壁反差最大'],
+  },
+  { id:'d3-3', day:3, date:'2026-04-05', startTime:'11:00', endTime:'12:30',
+    title:'北港文创村', subtitle:'石头厝古村 · 文艺拍照圣地',
+    type:'scenic', icon:'camera', lat:25.554, lng:119.823,
+    desc:'平潭标志性的石头厝（石头房子）古村落，保留了传统渔村风貌。近年注入文创元素，村里有特色民宿、咖啡馆、手作工坊、涂鸦墙，是文艺青年的最爱。',
+    tips:['免费开放，随意逛','村里咖啡馆可以坐一坐，歇歇脚喝杯咖啡','有一些文创商品，可以买平潭特色伴手礼','沿海栈道可以走走，看海景吹海风','村子不大，1-1.5小时足够细逛'],
+    photoTips:['★★★ Rae的拍照天堂！','彩色石头厝+蓝天白云 = 小红书爆款构图','村里各种涂鸦墙、文创装置都是绝佳背景','穿亮色衣服（黄/红/白）和石头厝灰蓝色调形成反差','小巷子里光影变幻，适合拍文艺人像','海边栈道可以拍海天一色的"旅行大片"','石头厝的窗框可以做前景"画中画"构图'],
+  },
+  { id:'d3-4', day:3, date:'2026-04-05', startTime:'12:30', endTime:'13:30',
+    title:'午餐 · 海鲜大餐', subtitle:'北港村附近',
+    type:'food', icon:'food', lat:25.550, lng:119.818,
+    desc:'在北港村附近找一家本地海鲜排档，品尝最新鲜的平潭海鲜。经过一上午的暴走，用一顿丰盛的海鲜补充能量。',
+    tips:['推荐菜：白灼小管、椒盐虾蛄、清蒸石斑鱼','如果昨晚没吃到时来运转和八珍炒糕，中午补上','让老板推荐当日最新鲜的海鲜，"今天什么最好"','别点太多，下午还有行程，吃太饱会犯困','海鲜配一碗平潭线面，完美搭配'],
+  },
+  { id:'d3-5', day:3, date:'2026-04-05', startTime:'14:00', endTime:'15:00',
+    title:'最美环岛路兜风', subtitle:'北部湾生态廊道',
+    type:'scenic', icon:'road', lat:25.560, lng:119.790,
+    desc:'平潭最美的海岸线公路，一侧是碧蓝无边的大海，一侧是风车和翠绿草地。被誉为"中国最美海岸线公路"之一。',
+    tips:['骑电动车兜风最爽，开车也行','沿途有很多可以停车拍照的观景平台','不用赶路，看到美景就停下来','风大戴好帽子和墨镜'],
+    photoTips:['公路+大海的构图永远经典','找一段S弯，人站在路中间拍（确认无车再拍！安全第一）','航拍视角超美（如果有无人机的话）','骑电动车的动态照片也很有感觉'],
+  },
+  { id:'d3-6', day:3, date:'2026-04-05', startTime:'15:30', endTime:'16:30',
+    title:'猫头墘村', subtitle:'原生态石头厝 · 小众秘境',
+    type:'scenic', icon:'camera', lat:25.535, lng:119.719,
+    desc:'比北港更原始、更安静的石头厝古村落。几乎没有商业开发，保留着最本真的平潭渔村风貌。藤蔓爬上石墙，炊烟袅袅，时光仿佛在这里停滞。',
+    tips:['免费，人很少，小众秘境','村子不大，30-60分钟足够','尊重当地居民生活，不要大声喧哗','村里没有商店，带好水'],
+    photoTips:['★★ 小众出片秘境！比北港人少10倍','废弃石厝里长出的藤蔓植物，意境绝美','窄巷+石墙+斑驳光影 = 高级人像场景','傍晚炊烟袅袅时最有氛围','残墙上的绿植和蓝天的对比色非常出彩','适合拍胶片风/复古风格的照片'],
+  },
+  { id:'d3-7', day:3, date:'2026-04-05', startTime:'17:00', endTime:'18:30',
+    title:'长江澳风车田日落（二刷）🌅', subtitle:'换个角度再看一次',
+    type:'scenic', icon:'sunset', lat:25.575, lng:119.685,
+    desc:'昨天已经看过一次日落，今天换个位置、换个心情再来一次。每天的云彩和光线都不一样，也许今天会有意外惊喜。',
+    tips:['今天可以往北走，找昨天没去过的角度','如果北线游完时间很早，可以先去坛南湾再回来看日落','两天看两次日落，是一种奢侈的浪漫'],
+    photoTips:['换个角度：试试用人物做主体、风车做远景','或者走到沙滩水边，拍倒影中的风车','两天的日落照片可以做对比组图，很有意思'],
+  },
+  { id:'d3-8', day:3, date:'2026-04-05', startTime:'15:00', endTime:'17:00',
+    title:'【加餐】坛南湾', subtitle:'如果北线结束早可以加',
+    type:'scenic', icon:'beach', lat:25.436, lng:119.779, optional:true,
+    desc:'平潭最美的白沙滩，沙质细腻如粉，海水清澈见底。适合踩水、放空、发呆，什么都不做也很幸福。',
+    tips:['从北港到坛南湾约30分钟车程','只有北线游完还有充裕时间才去，不要赶','可以只待30-60分钟，踩踩水拍拍照','清明假期人可能较多，做好心理准备'],
+    photoTips:['白沙+蓝海，构图简洁大气','退潮时沙滩上的水膜倒影非常美','在沙滩上画个爱心，拍两个人的脚印'],
+  },
+  { id:'d3-9', day:3, date:'2026-04-05', startTime:'21:00', endTime:'23:00',
+    title:'蓝眼泪（二刷）✨', subtitle:'昨晚没追到的话今晚再试',
+    type:'blue-tears', icon:'stars', lat:25.578, lng:119.686, optional:true,
+    desc:'如果昨晚没看到蓝眼泪，今晚是最后一次机会。今晚可以就在民宿门口的长江澳碰运气，不用跑远。',
+    tips:['同样先查小程序概率','今晚是在平潭的最后一夜，概率高就去','就在民宿门口看，轻松无压力','没看到也没关系，本身追泪的过程就是一种浪漫体验'],
+  },
+
+  // ===== DAY 4 =====
+  { id:'d4-1', day:4, date:'2026-04-06', startTime:'06:30', endTime:'07:30',
+    title:'退房 → 前往平潭站', subtitle:'早起返程',
+    type:'transit', icon:'hotel', lat:25.576, lng:119.689,
+    desc:'收拾行李，告别那片海。带着满满的回忆踏上归途。',
+    tips:['前一晚收拾好行李，早起就能走','⚠️ 提前叫好车！清明节早上打车难','从民宿到平潭站约20分钟','可以在民宿打包早餐或提前买好面包','最后看一眼窗外的海和风车 🌊'],
+  },
+  { id:'d4-2', day:4, date:'2026-04-06', startTime:'08:08', endTime:'09:00',
+    title:'平潭 → 福州南', subtitle:'G1634 · 返程第一段',
+    type:'transit', icon:'train', lat:25.507, lng:119.728, endLat:25.988, endLng:119.351,
+    desc:'再次跨越平潭海峡大桥，最后看一眼平潭岛的轮廓。约50分钟到达福州南站。',
+    tips:['这次坐在左侧看海峡大桥','在福州南站换乘时间充裕（约36分钟）','可以在车站买些福建特产带回去'],
+  },
+  { id:'d4-3', day:4, date:'2026-04-06', startTime:'09:36', endTime:'14:00',
+    title:'福州南 → 合肥南', subtitle:'G3206 · 回家',
+    type:'transit', icon:'train', lat:25.988, lng:119.351, endLat:31.820, endLng:117.308,
+    desc:'返程最后一段，约4.5小时。在车上整理照片、回味这趟旅程的美好时光。',
+    tips:['车上可以一起整理这几天的照片，选出最满意的','给平潭的民宿留个好评','回味一下时来运转的味道，计划下次再来','预计下午2点左右到合肥，回家休息'],
+  },
+];
+
+// ============================
+// MAP INIT
+// ============================
+const map = L.map('map',{zoomControl:false,attributionControl:true}).setView([25.52,119.75],12);
+L.control.zoom({position:'bottomright'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  maxZoom:19, subdomains:'abcd',
+  attribution:'&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://osm.org/copyright">OSM</a>'
+}).addTo(map);
+
+// ============================
+// MAP BOUNDS
+// ============================
+const BOUNDS = {
+  0: [[25.0,117.0],[32.0,120.0]], // overview
+  1: [[25.8,119.1],[26.3,119.5]], // fuzhou
+  2: [[25.38,119.55],[26.15,119.95]], // fuzhou -> pingtan
+  3: [[25.40,119.65],[25.62,119.88]], // pingtan north
+  4: [[25.3,117.0],[32.0,119.9]], // return
+};
+
+// ============================
+// MARKERS & LAYERS
+// ============================
+let markers = {};
+let routeLines = {};
+let currentDay = 0;
+let activeItemId = null;
+
+function createMarker(item) {
+  const typeClass = item.type || 'scenic';
+  const optClass = item.optional ? ' type-optional' : '';
+  const icon = L.divIcon({
+    className:'',
+    html:`<div class="custom-marker type-${typeClass}${optClass}">${item.startTime?`<div class="marker-time">${item.startTime}</div>`:''}<div class="marker-emoji">${ICONS[item.icon]||'📍'}</div><div class="marker-label">${item.title.length>8?item.title.substring(0,8)+'…':item.title}</div></div>`,
+    iconSize:[36,36], iconAnchor:[18,18],
+  });
+  const m = L.marker([item.lat,item.lng],{icon}).on('click',()=>openDetail(item.id));
+  return m;
+}
+
+// Create layer groups per day
+const dayLayers = {0:L.layerGroup(), 1:L.layerGroup(), 2:L.layerGroup(), 3:L.layerGroup(), 4:L.layerGroup()};
+
+schedule.forEach(item => {
+  const m = createMarker(item);
+  markers[item.id] = m;
+  dayLayers[item.day].addLayer(m);
+
+  // Sub-locations (blue tears)
+  if(item.subLocations){
+    item.subLocations.forEach((sub,i)=>{
+      const si = L.divIcon({
+        className:'',
+        html:`<div class="custom-marker type-blue-tears" style="width:28px;height:28px;font-size:12px">💧<div class="marker-label" style="font-size:10px">${sub.name}</div></div>`,
+        iconSize:[28,28],iconAnchor:[14,14],
+      });
+      const sm = L.marker([sub.lat,sub.lng],{icon:si}).on('click',()=>openDetail(item.id));
+      dayLayers[item.day].addLayer(sm);
+    });
+  }
+});
+
+// Route lines
+function createRouteLines(){
+  const dayRoutes = {1:[],2:[],3:[],4:[]};
+  schedule.forEach(it=>{
+    if(!dayRoutes[it.day]) return;
+    dayRoutes[it.day].push([it.lat,it.lng]);
+    if(it.endLat) dayRoutes[it.day].push([it.endLat,it.endLng]);
+  });
+  [1,2,3,4].forEach(d=>{
+    if(dayRoutes[d].length>1){
+      routeLines[d]=L.polyline(dayRoutes[d],{color:DAY_COLORS[d],weight:3,opacity:0.6,dashArray:d===3?'':'8 6'}).addTo(map);
+    }
+  });
+}
+createRouteLines();
+
+// ============================
+// SWITCH DAY
+// ============================
+function switchDay(day){
+  currentDay = day;
+  // Update tabs
+  document.querySelectorAll('.day-tab').forEach(t=>t.classList.toggle('active',+t.dataset.day===day));
+  // Clear map layers
+  [0,1,2,3,4].forEach(d=>map.removeLayer(dayLayers[d]));
+  Object.values(routeLines).forEach(r=>map.removeLayer(r));
+
+  if(day===0){
+    // Show all
+    [1,2,3,4].forEach(d=>{dayLayers[d].addTo(map); if(routeLines[d]) routeLines[d].addTo(map);});
+    map.fitBounds(BOUNDS[0],{padding:[60,60],maxZoom:8});
+  } else {
+    dayLayers[day].addTo(map);
+    if(routeLines[day]) routeLines[day].addTo(map);
+    map.fitBounds(BOUNDS[day],{padding:[60,60],maxZoom:14,animate:true,duration:1});
+  }
+  renderTimeline(day);
+  closeDetail();
+}
+
+// ============================
+// TIMELINE
+// ============================
+function renderTimeline(day){
+  const el = document.getElementById('timeline');
+  let html = '';
+  const items = day===0 ? schedule : schedule.filter(it=>it.day===day);
+  let lastDay = 0;
+
+  items.forEach(item => {
+    if(item.day !== lastDay){
+      html += `<div class="tl-day-header" style="color:${DAY_COLORS[item.day]}">${DAY_LABELS[item.day]}</div>`;
+      lastDay = item.day;
+    }
+    const timeState = getTimeState(item);
+    const bg = `background:${DAY_COLORS[item.day]}22`;
+    html += `
+      <div class="tl-item ${timeState} ${item.optional?'optional':''}" data-day="${item.day}" data-id="${item.id}" onclick="onTimelineClick('${item.id}')">
+        <div class="tl-time">${item.startTime}</div>
+        <div class="tl-icon" style="${bg}">${ICONS[item.icon]||'📍'}</div>
+        <div class="tl-info">
+          <div class="tl-title">${item.title}</div>
+          <div class="tl-subtitle">${item.subtitle||''}</div>
+        </div>
+      </div>`;
+  });
+  el.innerHTML = html;
+
+  // Scroll to active
+  setTimeout(()=>{
+    const now = el.querySelector('.tl-item.now') || el.querySelector('.tl-item.active');
+    if(now) now.scrollIntoView({behavior:'smooth',block:'center'});
+  },300);
+}
+
+function onTimelineClick(id){
+  const item = schedule.find(s=>s.id===id);
+  if(!item) return;
+  map.flyTo([item.lat,item.lng], item.day<=1||item.day===4?10:14, {duration:0.8});
+  openDetail(id);
+  // Highlight
+  document.querySelectorAll('.tl-item').forEach(e=>e.classList.remove('active'));
+  const el = document.querySelector(`.tl-item[data-id="${id}"]`);
+  if(el) el.classList.add('active');
+}
+
+// ============================
+// DETAIL PANEL
+// ============================
+function highlightMarker(id){
+  // Remove previous highlight
+  document.querySelectorAll('.custom-marker.active-marker').forEach(el=>el.classList.remove('active-marker'));
+  // Add highlight to current marker
+  if(markers[id]){
+    const markerEl = markers[id].getElement();
+    if(markerEl){
+      const cm = markerEl.querySelector('.custom-marker');
+      if(cm) cm.classList.add('active-marker');
+    }
+  }
+}
+
+function openDetail(id){
+  const item = schedule.find(s=>s.id===id);
+  if(!item) return;
+  activeItemId = id;
+  highlightMarker(id);
+
+  const dayColor = DAY_COLORS[item.day];
+  let html = `<div class="detail-header">
+    <div class="badge" style="background:${dayColor}33;color:${dayColor}">Day ${item.day} · ${item.date.split('-').slice(1).join('/')}</div>
+    <h2>${item.title}</h2>
+    <div class="sub">${item.subtitle||''}</div>
+    <div class="detail-time-badge">🕐 ${item.startTime} — ${item.endTime}</div>
+  </div><div class="detail-body">`;
+
+  html += `<div class="detail-desc">${item.desc}</div>`;
+
+  // Weather toggle for d2-2
+  if(item.plan==='flexible'){
+    html += `<div class="detail-section"><div class="detail-section-title tips">🌤 天气弹性方案</div>
+      <div class="weather-toggle">
+        <button class="weather-btn active" onclick="this.parentNode.querySelectorAll('.weather-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');">☀️ 平潭天气好 → 快走</button>
+        <button class="weather-btn" onclick="this.parentNode.querySelectorAll('.weather-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');">🌧 天气不好 → 细逛</button>
+      </div></div>`;
+  }
+
+  // Tips
+  if(item.tips && item.tips.length){
+    html += `<div class="detail-section tips"><div class="detail-section-title tips">💡 实用建议</div>`;
+    item.tips.forEach(t=>{
+      const hl = t.startsWith('⚠️')||t.startsWith('🥇')||t.startsWith('📱')||t.startsWith('★')?'highlight':'';
+      html+=`<div class="detail-tip ${hl}">${t}</div>`;
+    });
+    html+='</div>';
+  }
+
+  // Photo tips
+  if(item.photoTips && item.photoTips.length){
+    html += `<div class="detail-section photo"><div class="detail-section-title photo">📸 拍照建议（Rae专属）</div>`;
+    item.photoTips.forEach(t=>{
+      const hl = t.startsWith('★')?'highlight':'';
+      html+=`<div class="detail-tip ${hl}">${t}</div>`;
+    });
+    html+='</div>';
+  }
+
+  // Blue tears sub-locations
+  if(item.subLocations){
+    html += `<div class="detail-section tears"><div class="detail-section-title tears">🗺 追泪地点推荐</div><div class="tears-spots">`;
+    item.subLocations.forEach(sub=>{
+      html+=`<div class="tear-spot" onclick="map.flyTo([${sub.lat},${sub.lng}],14,{duration:0.6})">
+        <div class="name">${sub.name}</div><div class="desc">${sub.desc}</div></div>`;
+    });
+    html+='</div></div>';
+  }
+
+  html += '</div>';
+  document.getElementById('detail-content').innerHTML = html;
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function closeDetail(){
+  document.getElementById('detail-panel').classList.remove('open');
+  document.querySelectorAll('.custom-marker.active-marker').forEach(el=>el.classList.remove('active-marker'));
+  activeItemId = null;
+}
+
+// ============================
+// TIMELINE TOGGLE
+// ============================
+function toggleTimeline(){
+  document.getElementById('timeline').classList.toggle('collapsed');
+  document.getElementById('timeline-toggle').classList.toggle('collapsed');
+}
+
+// ============================
+// TIME LOGIC
+// ============================
+function parseDateTime(date,time){
+  return new Date(`${date}T${time}:00+08:00`);
+}
+function getTimeState(item){
+  const now = new Date();
+  const start = parseDateTime(item.date,item.startTime);
+  const end = parseDateTime(item.date,item.endTime);
+  if(now < start) return '';
+  if(now >= start && now <= end) return 'now';
+  return 'past';
+}
+
+function updateStatus(){
+  const now = new Date();
+  const tripStart = parseDateTime('2026-04-03','13:12');
+  const tripEnd = parseDateTime('2026-04-06','14:00');
+  const curEl = document.getElementById('status-current-text');
+  const nextEl = document.getElementById('status-next-text');
+  const cdEl = document.getElementById('status-countdown');
+
+  if(now < tripStart){
+    const diff = tripStart - now;
+    const days = Math.floor(diff/86400000);
+    const hrs = Math.floor((diff%86400000)/3600000);
+    curEl.textContent = `距离出发还有 ${days} 天 ${hrs} 小时`;
+    nextEl.textContent = '合肥南站 G7705';
+    cdEl.textContent = `${days}d ${hrs}h`;
+    return;
+  }
+  if(now > tripEnd){
+    curEl.textContent = '旅程已结束，美好的回忆永远留在心中 ✨';
+    nextEl.textContent = '';
+    cdEl.textContent = '完';
+    document.querySelector('.pulse').style.background='#94a3b8';
+    return;
+  }
+
+  // Find current & next
+  let currentItem = null, nextItem = null;
+  for(let i=0;i<schedule.length;i++){
+    const s = parseDateTime(schedule[i].date,schedule[i].startTime);
+    const e = parseDateTime(schedule[i].date,schedule[i].endTime);
+    if(now>=s && now<=e && !schedule[i].optional){ currentItem=schedule[i]; nextItem=schedule[i+1]||null; break; }
+    if(now<s && !schedule[i].optional){ nextItem=schedule[i]; if(i>0) currentItem=schedule[i-1]; break; }
+  }
+  if(currentItem){
+    curEl.textContent = `${currentItem.title}`;
+  } else {
+    curEl.textContent = '自由活动中';
+  }
+  if(nextItem){
+    nextEl.textContent = `${nextItem.startTime} ${nextItem.title}`;
+    const diff = parseDateTime(nextItem.date,nextItem.startTime) - now;
+    if(diff>0){
+      const h=Math.floor(diff/3600000); const m=Math.floor((diff%3600000)/60000);
+      cdEl.textContent = h>0?`${h}h ${m}m`:`${m}m`;
+    }
+  } else {
+    nextEl.textContent='';
+    cdEl.textContent='';
+  }
+}
+
+// Auto-focus on current day
+function autoFocusToday(){
+  const now = new Date();
+  for(let d=1;d<=4;d++){
+    const dayItems = schedule.filter(s=>s.day===d && !s.optional);
+    if(dayItems.length===0) continue;
+    const dayStart = parseDateTime(dayItems[0].date, dayItems[0].startTime);
+    const dayEnd = parseDateTime(dayItems[dayItems.length-1].date, dayItems[dayItems.length-1].endTime);
+    if(now>=dayStart && now<=dayEnd){
+      switchDay(d);
+      return;
+    }
+  }
+  // Default: if before trip show day 1, if after show overview
+  const tripStart = parseDateTime('2026-04-03','13:12');
+  if(now < tripStart) switchDay(0);
+  else switchDay(0);
+}
+
+// ============================
+// TITLE SCREEN
+// ============================
+function enterTrip(){
+  document.getElementById('trip-title').classList.add('hidden');
+  setTimeout(()=>{
+    autoFocusToday();
+    updateStatus();
+    setInterval(updateStatus, 60000);
+  },400);
+}
+
+// Init: show title screen
+switchDay(0);
+// Also pre-render timeline for overview
+renderTimeline(0);
+</script>
+</body>
+</html>
