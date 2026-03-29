@@ -1057,6 +1057,26 @@ const INTRO_STOPS = [
 
 const DAY_COLORS_INTRO = { 1:'#6366f1', 2:'#f59e0b', 3:'#10b981', 4:'#8b5cf6' };
 
+// -- Intro animation helpers (global scope) --
+const TRANSPORT_EMOJI = {train:'🚄',didi:'🚕',ebike:'🛵'};
+function makeVehicleIcon(emoji, bearing) {
+  return L.divIcon({
+    className:'',
+    html:'<div class="route-vehicle-bg"><div class="route-vehicle" style="transform:rotate('+bearing+'deg)">'+emoji+'</div></div>',
+    iconSize:[40,40], iconAnchor:[20,20]
+  });
+}
+function getBearing(lat1,lng1,lat2,lng2) {
+  const toRad=d=>d*Math.PI/180, toDeg=r=>r*180/Math.PI;
+  const dLng=toRad(lng2-lng1);
+  const y=Math.sin(dLng)*Math.cos(toRad(lat2));
+  const x=Math.cos(toRad(lat1))*Math.sin(toRad(lat2))-Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(dLng);
+  return (toDeg(Math.atan2(y,x))+360)%360;
+}
+function interpolate(p1,p2,t) {
+  return [p1[0]+(p2[0]-p1[0])*t, p1[1]+(p2[1]-p1[1])*t];
+}
+
 function initIntro() {
   try {
     if(localStorage.getItem(INTRO_SKIP_KEY) === '1') {
@@ -1077,27 +1097,6 @@ function initIntro() {
     maxZoom:18
   }).addTo(introMap);
 
-  // Create transport vehicle marker (initially hidden)
-  function makeVehicleIcon(emoji, bearing) {
-    return L.divIcon({
-      className:'',
-      html:'<div class="route-vehicle-bg"><div class="route-vehicle" style="transform:rotate('+bearing+'deg)">'+emoji+'</div></div>',
-      iconSize:[40,40], iconAnchor:[20,20]
-    });
-  }
-  // Bearing calculation helper
-  function getBearing(lat1,lng1,lat2,lng2) {
-    const toRad=d=>d*Math.PI/180, toDeg=r=>r*180/Math.PI;
-    const dLng=toRad(lng2-lng1);
-    const y=Math.sin(dLng)*Math.cos(toRad(lat2));
-    const x=Math.cos(toRad(lat1))*Math.sin(toRad(lat2))-Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(dLng);
-    return (toDeg(Math.atan2(y,x))+360)%360;
-  }
-  // Interpolate between two latlngs
-  function interpolate(p1,p2,t) {
-    return [p1[0]+(p2[0]-p1[0])*t, p1[1]+(p2[1]-p1[1])*t];
-  }
-  const TRANSPORT_EMOJI = {train:'🚄',didi:'🚕',ebike:'🛵'};
   routeDot = L.marker([31.820, 117.308], {
     icon: makeVehicleIcon('🚄', 0), zIndexOffset:1000
   }).addTo(introMap);
